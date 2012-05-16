@@ -1,0 +1,91 @@
+= Knife Nodefu
+
+Website:: https://github.com/brianbianco/nodefu
+
+= DESCRIPTION:
+
+A basic utility to help automate the creation and destruction of ec2 servers managed by chef.
+
+= INSTALLATION:
+
+gem install knife-nodefu
+
+= Definitions File
+
+This file provides all the proper definitions for nodefu to be able to easily build out servers.  You can either pass in the definitions file with the -d option, or set the following option in your knife.rb file.
+ 
+nodefu_definitions_file    "Path to file"
+
+Example definitions yml file:
+
+default: 
+  domain: 'gf-svc.com'
+
+  vm_spec:
+    m1.xlarge:
+      ami: 'ami-00000000'
+      region: 'us-east-1'
+      az: 'us-east-1d'
+      ssh_key: 'id_rsa'
+      type: 'm1.xlarge'
+      bootstrap: 'ubuntu10.10-gems'
+      user: 'ubuntu'
+  node_spec:
+    noodle:
+      vm_spec: 'm1.large'
+      run_list:
+        - 'role[noodle]'
+env:
+  production:
+  staging: 
+    vm_spec:
+      m1.large:
+        ssh_key: 'other_key'
+    node_spec:
+      worker:
+        aux_groups:
+          - 'env_base_group1'
+
+= SUBCOMMANDS:
+
+This plugin provides the following Knife subcommands.  Specific command options can be found by invoking the subcommand with a --help flag
+
+== knife nodefu create
+
+This command expects an argument in the format of <hostname><id> or <hostname>[<start_range>-<end_range>] where id is an integer.  It will automatically use the hostname as the node_spec unless you specify one with the -n option
+
+options:
+
+-n, --node_spec
+-y, --yes
+-d, --definitions_file
+
+== knife nodefu destroy
+
+This command expects a regular expression which it will use to search the node names.  It will then delete the client entry, node entry, and ec2 instances for those (of course not without confirmation unless you use -y)
+
+options:
+
+-y, --yes
+-c, --skip-clients
+-n, --skip-nodes
+-i, --skip-instances
+
+= LICENSE:
+
+Author:: [Brian Bianco] (<brian.bianco@gmail.com>)
+Author_Website:: http://www.brianbianco.com
+License:: Apache License, Version 2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
