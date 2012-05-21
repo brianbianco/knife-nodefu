@@ -7,13 +7,14 @@ class NodefuDestroy < Chef::Knife
     require 'chef/api_client'
     require 'chef/node'
     require 'chef/json_compat'
+    require 'chef/search/query'
     require 'thread'
     Chef::Knife::Ec2ServerDelete.load_deps
   end
 
   include NodefuBase
 
-  banner "knife nodefu destroy <name>|<name>[range]"
+  banner "knife nodefu destroy QUERY (options)"
 
   option :yes,
          :short => "-y",
@@ -41,13 +42,13 @@ class NodefuDestroy < Chef::Knife
 
   def run
     check_args(1)
-    matcher = /#{name_args[0]}/  
 
-    all_clients = Chef::ApiClient.list(true) 
-    all_nodes = Chef::Node.list
-
-    nodes_to_delete = all_nodes.inject({}) { |nodes, (k,v)| nodes[k] = Chef::Node.load(k) if k =~ matcher; nodes } 
-    clients_to_delete = all_clients.inject({}) { |clients, (k, v)| clients[k] = v if k =~ matcher; clients }   
+    nodes_to_delete, clients_to_delete = {},{}
+    query = Chef::Search::Query.new
+    query.search('node',name_args[0]) do |node|
+      nodes_to_delete[node.name] = node
+      clients_to_delete[node.name] = Chef::ApiClient.load(node.name)
+    end
 
     #Display all the items that will be removed   
     if config[:skip_clients]
@@ -68,9 +69,9 @@ class NodefuDestroy < Chef::Knife
       ui.msg("#{ui.color('Skipping instances...',:cyan)}")    
     else
       ui.msg("#{ui.color('EC2 instances to be terminated:',:red)}") 
-      nodes_to_delete.each do |node|
-        instance_id = node[1]['ec2']['instance_id']
-        ui.msg("#{ui.color(node[0],:magenta)}: #{instance_id}")
+      nodes_to_delete.each_pair do |name,node|
+        instance_id = node['ec2']['instance_id']
+        ui.msg("#{ui.color(name,:magenta)}: #{instance_id}")
       end
     end
     
@@ -80,10 +81,10 @@ class NodefuDestroy < Chef::Knife
     unless config[:skip_instances]
       threads = []
       #Delete the ec2 server
-      for i in nodes_to_delete
-        threads << Thread.new(i) do |node|      
+      nodes_to_delete.each_pair do |name,node|
+        threads << Thread.new(node) do |node|      
          ec2_delete = Ec2ServerDelete.new 
-         instance_id = node[1]['ec2']['instance_id']
+         instance_id = node['ec2']['instance_id']
          ec2_delete.name_args[0] = instance_id
          ec2_delete.config[:yes] = true
          ec2_delete.run

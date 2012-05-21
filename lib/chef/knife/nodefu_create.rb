@@ -32,18 +32,16 @@ class NodefuCreate < Chef::Knife
          :default => nil 
 
   def run
+    check_args(1)
     env = Chef::Config[:environment]  
     definitions_file = config[:definitions_file].nil? ? Chef::Config[:nodefu_definitions_file] : config[:definitions_file] 
     @yml_config = YAML.load_file definitions_file
 
-    check_args(1)
     servers = name_args[0]
     base_name, start_range, end_range = parse_servers(servers)  
 
     #merge the current environment hash with the defaults
     merged_configuration = Chef::Mixin::DeepMerge.merge(@yml_config['default'],@yml_config['env'][env])
-
-    domain = merged_configuration['domain'] 
 
     if (! config[:node_spec].nil?)
       node_spec_name = config[:node_spec]
@@ -51,6 +49,7 @@ class NodefuCreate < Chef::Knife
       node_spec_name = base_name 
     end
 
+    domain       = merged_configuration['domain'] 
     node_spec    = merged_configuration['node_spec'][node_spec_name]
     vm_spec_name = node_spec['vm_spec']
     vm_spec      = merged_configuration['vm_spec'][vm_spec_name]
@@ -67,27 +66,34 @@ class NodefuCreate < Chef::Knife
     config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n]").downcase
     abort("See ya!") unless (['yes','y',].include?(user_response))
 
-    threads = []
+    threads = []   
     for i in (start_range..end_range)
-      threads << Thread.new(i) do |id|
-        ec2_create = Ec2ServerCreate.new
-        node_name = "#{base_name}#{id}" 
-        
-        #A handeful of the Ec2ServerCreate command line options use a :proc field so I have to
-        #populate those by hand instead of simply passing a value to its config entry 
-        Chef::Config[:knife][:aws_ssh_key_id] = vm_spec['ssh_key']
-        Chef::Config[:knife][:image]          = vm_spec['ami']
-        Chef::Config[:knife][:region]         = vm_spec['region']
-        ec2_create.config[:chef_node_name]    = "#{node_name}.#{env}.#{domain}"
-        ec2_create.config[:run_list]          = node_spec['run_list']      
-        ec2_create.config[:flavor]            = vm_spec['type']
-        ec2_create.config[:security_groups]   = (generate_security_groups(node_name,env) + aux_groups).split(',') 
-        ec2_create.config[:ssh_user]          = vm_spec['user']
-        ec2_create.config[:availability_zone] = vm_spec['az']
-        ec2_create.config[:distro]            = vm_spec['bootstrap']    
-        ec2_create.run
-      end
+      ec2_server_request = Ec2ServerCreate.new
+      node_name = "#{base_name}#{i}"
+      full_node_name = "#{base_name}#{i}.#{env}.#{domain}"  
+      #A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
+      #populate those by hand instead of simply passing a value to its config entry 
+      Chef::Config[:knife][:aws_ssh_key_id] = vm_spec['ssh_key']
+      Chef::Config[:knife][:image]          = vm_spec['ami']
+      Chef::Config[:knife][:region]         = vm_spec['region']
+      ec2_server_request.config[:chef_node_name]    = full_node_name
+      ec2_server_request.config[:run_list]          = node_spec['run_list']      
+      ec2_server_request.config[:flavor]            = vm_spec['type']
+      ec2_server_request.config[:security_groups]   = (generate_security_groups(node_name,env) + aux_groups).split(',') 
+      ec2_server_request.config[:ssh_user]          = vm_spec['user']
+      ec2_server_request.config[:availability_zone] = vm_spec['az']
+      ec2_server_request.config[:distro]            = vm_spec['bootstrap'] 
+      threads << Thread.new(node_name,ec2_server_request) do |node_name,request|
+        e = nil
+        begin 
+          request.run
+        rescue => e
+          puts e.message
+        end 
+        {node_name => request.server, 'exception' => e}
+      end        
     end
     threads.each(&:join)
+    servers = threads.map(&:value) 
   end 
 end
