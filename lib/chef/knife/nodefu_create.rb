@@ -31,6 +31,12 @@ class NodefuCreate < Chef::Knife
          :description => "yml definitions file",
          :default => nil 
 
+  option :exit_on_fail,
+         :short => "-e",
+         :long => "--exit-on-fail",
+         :description => "Exit if one of the servers fails to come up",
+         :default => nil
+
   def run
     check_args(1)
     env = Chef::Config[:environment]  
@@ -83,17 +89,22 @@ class NodefuCreate < Chef::Knife
       ec2_server_request.config[:ssh_user]          = vm_spec['user']
       ec2_server_request.config[:availability_zone] = vm_spec['az']
       ec2_server_request.config[:distro]            = vm_spec['bootstrap'] 
-      threads << Thread.new(node_name,ec2_server_request) do |node_name,request|
+      threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
         begin 
           request.run
-        rescue => e
-          puts e.message
+        rescue => e 
+          config[:exit_on_fail] ? raise(e) : puts("#{full_node_name}: #{e.message}")
         end 
-        {node_name => request.server, 'exception' => e}
+        [full_node_name, { 'server' => request.server, 'failure' => e, 'chef_node' => nil} ]
       end        
     end
     threads.each(&:join)
-    servers = threads.map(&:value) 
+    servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
+
+    query = Chef::Search::Query.new
+    query.search('node',"name:#{base_name}*#{env}*") do |n|
+      servers[n.name]['chef_node'] = n
+    end
   end 
 end
