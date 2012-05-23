@@ -82,13 +82,10 @@ class NodefuDestroy < Chef::Knife
       threads = []
       #Delete the ec2 server
       nodes_to_delete.each_pair do |name,node|
-        threads << Thread.new(node) do |node|      
          ec2_delete = Ec2ServerDelete.new 
-         instance_id = node['ec2']['instance_id']
-         ec2_delete.name_args[0] = instance_id
+         ec2_delete.name_args[0] = node['ec2']['instance_id']
          ec2_delete.config[:yes] = true
-         ec2_delete.run
-        end
+         threads << Thread.new(node) { |node| ec2_delete.run }
       end 
       threads.each(&:join)
     end

@@ -29,4 +29,12 @@ module NodefuBase
     raise ServerRangeError if end_range.to_i < start_range.to_i
     return [base_name,start_range,end_range]
   end
+
+  def failed_nodes(servers)
+    servers.select {|k,v| v['chef_node'].nil? || !v['failure'].nil? }    
+  end
+
+  def successful_nodes(servers)
+    servers.select {|k,v| !v['chef_node'].nil? && v['failure'].nil? }
+  end
 end

@@ -6,12 +6,16 @@ class NodefuCreate < Chef::Knife
     require 'fileutils'
     require 'yaml'
     require 'thread'
+    require 'fog'
     Chef::Knife::Ec2ServerCreate.load_deps
+    Chef::Knife::Ec2ServerDelete.load_deps
   end
 
   include NodefuBase
 
   banner "knife nodefu create <server><range> (OPTIONS)"
+
+  attr_reader :servers
 
   option :node_spec,
          :short => "-n <node_spec>",
@@ -37,14 +41,26 @@ class NodefuCreate < Chef::Knife
          :description => "Exit if one of the servers fails to come up",
          :default => nil
 
+  option :destroy_on_fail,
+         :short => "-f",
+         :long => "--destroy-on-fail",
+         :description => "Terminate the ec2 instance on error",
+         :default => nil
+
+  def destroy_instances(servers)
+    ec2_delete = Ec2ServerDelete.new   
+    servers.each_with_index { |s,i| ec2_delete.name_args[i] = s.server['id'] }
+    ec2_delete.config[:yes] = true
+    ec2_delete.run 
+  end
+
   def run
     check_args(1)
     env = Chef::Config[:environment]  
     definitions_file = config[:definitions_file].nil? ? Chef::Config[:nodefu_definitions_file] : config[:definitions_file] 
     @yml_config = YAML.load_file definitions_file
 
-    servers = name_args[0]
-    base_name, start_range, end_range = parse_servers(servers)  
+    base_name, start_range, end_range = parse_servers(name_args[0])  
 
     #merge the current environment hash with the defaults
     merged_configuration = Chef::Mixin::DeepMerge.merge(@yml_config['default'],@yml_config['env'][env])
@@ -100,11 +116,24 @@ class NodefuCreate < Chef::Knife
       end        
     end
     threads.each(&:join)
-    servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
+
+    #Build a servers hash with the node names as they key from the object returned
+    #by the threads
+    @servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
 
     query = Chef::Search::Query.new
     query.search('node',"name:#{base_name}*#{env}*") do |n|
-      servers[n.name]['chef_node'] = n
+      @servers[n.name]['chef_node'] = n
+    end
+  
+    ui.msg('') 
+    ui.msg(ui.color('Failed Nodes:',:red))
+    failed_nodes(@servers).each_pair do |k,v|
+      ui.msg("#{k}: #{v['failure']}")
+    end
+    ui.msg(ui.color('Successful Nodes:',:green))
+    successful_nodes(@servers).each_pair do |k,v|
+      ui.msg("#{k}: #{v['id']}, #{v['dns_name']}")
     end
   end 
 end
