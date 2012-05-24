@@ -48,8 +48,14 @@ class NodefuCreate < Chef::Knife
          :default => nil
 
   def destroy_instances(servers)
-    ec2_delete = Ec2ServerDelete.new   
-    servers.each_with_index { |s,i| ec2_delete.name_args[i] = s.server['id'] }
+    ec2_delete = Ec2ServerDelete.new 
+    servers.each_pair.with_index do |(k,v),i| 
+      if v['server'].nil?
+        ui.msg("No server to delete for #{k}")
+      else
+        ec2_delete.name_args[i] = v['server'].id
+      end
+    end
     ec2_delete.config[:yes] = true
     ec2_delete.run 
   end
@@ -117,8 +123,7 @@ class NodefuCreate < Chef::Knife
     end
     threads.each(&:join)
 
-    #Build a servers hash with the node names as they key from the object returned
-    #by the threads
+    #Build a servers hash with the node names as they key from the object returned by the threads
     @servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
 
     query = Chef::Search::Query.new
@@ -128,12 +133,14 @@ class NodefuCreate < Chef::Knife
   
     ui.msg('') 
     ui.msg(ui.color('Failed Nodes:',:red))
-    failed_nodes(@servers).each_pair do |k,v|
-      ui.msg("#{k}: #{v['failure']}")
-    end
+    failed = failed_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['failure']}") }
+
     ui.msg(ui.color('Successful Nodes:',:green))
-    successful_nodes(@servers).each_pair do |k,v|
-      ui.msg("#{k}: #{v['id']}, #{v['dns_name']}")
+    successful = successful_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['dns_name']}") }
+
+    if config[:destroy_on_fail]
+      ui.msg(ui.color("Destroying failed nodes:",:red))
+      destroy_instances(failed)       
     end
   end 
 end
