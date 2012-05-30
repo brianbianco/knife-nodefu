@@ -128,7 +128,7 @@ class NodefuCreate < Chef::Knife
 
     query = Chef::Search::Query.new
     query.search('node',"name:#{base_name}*#{env}*") do |n|
-      @servers[n.name]['chef_node'] = n
+      @servers[n.name]['chef_node'] = n unless @servers[n.name].nil?
     end
   
     ui.msg('') 
