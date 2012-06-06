@@ -134,7 +134,13 @@ class NodefuCreate < Chef::Knife
   
     ui.msg('') 
     ui.msg(ui.color('Failed Nodes:',:red))
-    failed = failed_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['failure']}") }
+    failed = failed_nodes(@servers).each_pair do |k,v| 
+      if v['server'].nil?
+        ui.msg("#{k}: #{v['failure']}")
+      else
+        ui.msg("#{k}: #{v['failure']}, #{v['server'].dns_name}, #{v['server'].id}") 
+      end
+    end
 
     ui.msg(ui.color('Successful Nodes:',:green))
     successful = successful_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
