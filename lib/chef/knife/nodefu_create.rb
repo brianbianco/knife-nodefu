@@ -128,6 +128,7 @@ class NodefuCreate < Chef::Knife
 
     query = Chef::Search::Query.new
     query.search('node',"name:#{base_name}*#{env}*") do |n|
+      n.inspect
       @servers[n.name]['chef_node'] = n unless @servers[n.name].nil?
     end
   
@@ -136,7 +137,7 @@ class NodefuCreate < Chef::Knife
     failed = failed_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['failure']}") }
 
     ui.msg(ui.color('Successful Nodes:',:green))
-    successful = successful_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['dns_name']}") }
+    successful = successful_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
 
     if config[:destroy_on_fail]
       ui.msg(ui.color("Destroying failed nodes:",:red))
