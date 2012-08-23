@@ -64,27 +64,23 @@ class NodefuCreate < Chef::Knife
     check_args(1)
     env = Chef::Config[:environment]  
     definitions_file = config[:definitions_file].nil? ? Chef::Config[:nodefu_definitions_file] : config[:definitions_file] 
-    @yml_config = YAML.load_file definitions_file
+    yml_config = YAML.load_file definitions_file
 
     base_name, start_range, end_range = parse_servers(name_args[0])  
 
-    #merge the current environment hash with the defaults
-    merged_configuration = Chef::Mixin::DeepMerge.merge(@yml_config['default'],@yml_config['env'][env])
+    # Merge the current environment hash with the defaults
+    merged_configuration = Chef::Mixin::DeepMerge.merge(yml_config['default'],yml_config['env'][env])
 
-    if (! config[:node_spec].nil?)
-      node_spec_name = config[:node_spec]
-    else 
-      node_spec_name = base_name 
-    end
+    node_spec_name = config[:node_spec] || base_name 
 
+    abort("I'm sorry I couldn't find any node_spec matches :(") unless (node_spec = merged_configuration['node_spec'][node_spec_name])
     domain       = merged_configuration['domain'] 
-    node_spec    = merged_configuration['node_spec'][node_spec_name]
     vm_spec_name = node_spec['vm_spec']
     vm_spec      = merged_configuration['vm_spec'][vm_spec_name]
     aux_groups   = node_spec['aux_groups'].nil? ? '' : ",#{node_spec['aux_groups'].join(',')}"
 
     #Present the user with some totally rad visuals!!!
-    ui.msg "#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:"
+    ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
     ui.msg("#{ui.color('Base Name',:cyan)}: #{base_name}")
     ui.msg("#{ui.color('Node Spec',:cyan)}: #{node_spec_name}")
     pretty_print_hash(node_spec)
@@ -127,23 +123,26 @@ class NodefuCreate < Chef::Knife
     @servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
 
     query = Chef::Search::Query.new
-    query.search('node',"name:#{base_name}*#{env}*") do |n|
-      n.inspect
-      @servers[n.name]['chef_node'] = n unless @servers[n.name].nil?
-    end
-  
+    query.search('node',"name:#{base_name}*#{env}*") { |n| @servers[n.name]['chef_node'] = n unless @servers[n.name].nil? } 
+
     ui.msg('') 
-    ui.msg(ui.color('Failed Nodes:',:red))
-    failed = failed_nodes(@servers).each_pair do |k,v| 
-      if v['server'].nil?
-        ui.msg("#{k}: #{v['failure']}")
-      else
-        ui.msg("#{k}: #{v['failure']}, #{v['server'].dns_name}, #{v['server'].id}") 
+
+    failed = failed_nodes(@servers)
+    unless failed.nil?
+      failed.each_pair do |k,v| 
+        if v['server'].nil?
+          ui.msg("#{k}: #{v['failure']}")
+        else
+          ui.msg("#{k}: #{v['failure']}, #{v['server'].dns_name}, #{v['server'].id}") 
+        end
       end
     end
 
-    ui.msg(ui.color('Successful Nodes:',:green))
-    successful = successful_nodes(@servers).each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
+    successful = successful_nodes(@servers)
+    unless successful.nil?
+      ui.msg(ui.color('Successful Nodes:',:green))
+      successful.each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
+    end
 
     if config[:destroy_on_fail]
       ui.msg(ui.color("Destroying failed nodes:",:red))
