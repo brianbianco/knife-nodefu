@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.has_rdoc    = true
   s.authors     = ['Brian Bianco']
   s.email       = ['brian.bianco@gmail.com']
-  s.homepage    = 'https://github.com/brianbianco/nodefu'
+  s.homepage    = 'https://github.com/brianbianco/knife-nodefu'
   s.summary     = 'A knife plugin for simple node creation automation'
   s.description = s.summary
   s.extra_rdoc_files = ['README.rdoc', 'LICENSE' ]
