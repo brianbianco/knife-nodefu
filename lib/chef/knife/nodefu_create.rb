@@ -60,26 +60,38 @@ class NodefuCreate < Chef::Knife
     ec2_delete.run 
   end
 
+  def definitions_from_directory(dir)
+    definitions = Hash.new
+    
+
+    Dir.entries(dir).each do |f|
+      if File.extname(f) == ".yml"
+        puts "loading #{f}"
+        loaded_defs = YAML.load_file(::File.join(dir,f))
+        definitions = Chef::Mixin::DeepMerge.merge(definitions,loaded_defs)
+      end
+    end
+    definitions
+  end
+
   def run
     check_args(1)
-    env = Chef::Config[:environment]  
-    definitions_file = config[:definitions_file].nil? ? Chef::Config[:nodefu_definitions_file] : config[:definitions_file] 
-    yml_config = YAML.load_file definitions_file
+
+    env            = Chef::Config[:environment]  
+    defs_dir       = Chef::Config[:nodefu_definitions] || config[:definitionss] 
+    yml_config     = definitions_from_directory defs_dir
+    merged_config  = Chef::Mixin::DeepMerge.merge(yml_config['default'],yml_config['env'][env])
+    node_spec_name = config[:node_spec] || base_name 
+    abort("I'm sorry I couldn't find any node_spec matches :(") unless (node_spec = merged_config['node_spec'][node_spec_name])
 
     base_name, start_range, end_range = parse_servers(name_args[0])  
 
-    # Merge the current environment hash with the defaults
-    merged_configuration = Chef::Mixin::DeepMerge.merge(yml_config['default'],yml_config['env'][env])
-
-    node_spec_name = config[:node_spec] || base_name 
-
-    abort("I'm sorry I couldn't find any node_spec matches :(") unless (node_spec = merged_configuration['node_spec'][node_spec_name])
-    domain       = merged_configuration['domain'] 
+    domain       = merged_config['domain'] 
     vm_spec_name = node_spec['vm_spec']
-    vm_spec      = merged_configuration['vm_spec'][vm_spec_name]
+    vm_spec      = merged_config['vm_spec'][vm_spec_name]
     aux_groups   = node_spec['aux_groups'].nil? ? '' : ",#{node_spec['aux_groups'].join(',')}"
 
-    #Present the user with some totally rad visuals!!!
+    # Present the user with some totally rad visuals!!!
     ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
     ui.msg("#{ui.color('Base Name',:cyan)}: #{base_name}")
     ui.msg("#{ui.color('Node Spec',:cyan)}: #{node_spec_name}")
@@ -95,8 +107,8 @@ class NodefuCreate < Chef::Knife
       ec2_server_request = Ec2ServerCreate.new
       node_name = "#{base_name}#{i}"
       full_node_name = "#{base_name}#{i}.#{env}.#{domain}"  
-      #A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
-      #populate those by hand instead of simply passing a value to its config entry 
+      # A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
+      # populate those by hand instead of simply passing a value to its config entry 
       Chef::Config[:knife][:aws_ssh_key_id] = vm_spec['ssh_key']
       Chef::Config[:knife][:image]          = vm_spec['ami']
       Chef::Config[:knife][:region]         = vm_spec['region']
@@ -119,7 +131,7 @@ class NodefuCreate < Chef::Knife
     end
     threads.each(&:join)
 
-    #Build a servers hash with the node names as they key from the object returned by the threads
+    # Build a servers hash with the node names as the key from the object returned by the threads
     @servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
 
     query = Chef::Search::Query.new
