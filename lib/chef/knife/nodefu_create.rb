@@ -30,9 +30,9 @@ class NodefuCreate < Chef::Knife
          :default => nil
   
   option :definitions_file,
-         :short => "-d <definitions_file_path>",
-         :long => "--definitions_file <definitions_file_path>",
-         :description => "yml definitions file",
+         :short => "-d <definitions_directory>",
+         :long => "--definitions_dir <definitions_directory>",
+         :description => "yml definitions directory",
          :default => nil 
 
   option :exit_on_fail,
@@ -62,8 +62,6 @@ class NodefuCreate < Chef::Knife
 
   def definitions_from_directory(dir)
     definitions = Hash.new
-    
-
     Dir.entries(dir).each do |f|
       if File.extname(f) == ".yml"
         puts "loading #{f}"

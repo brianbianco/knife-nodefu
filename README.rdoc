@@ -10,11 +10,11 @@ A basic utility to help automate the creation and destruction of ec2 servers man
 
 gem install knife-nodefu
 
-= Definitions File
+= Definitions File Directory
 
-This file provides all the proper definitions for nodefu to be able to easily build out servers.  You can either pass in the definitions file with the -d option, or set the following option in your knife.rb file.
+This file provides all the proper definitions for nodefu to be able to easily build out servers.  You can either pass in the definitions file directory with the -d option, or set the following option in your knife.rb file.
  
-nodefu_definitions_file    "Path to file"
+nodefu_definitions "Path to directory"
 
 Example definitions yml file:
 
