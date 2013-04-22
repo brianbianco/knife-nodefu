@@ -76,7 +76,7 @@ class NodefuCreate < Chef::Knife
     check_args(1)
 
     env            = Chef::Config[:environment]  
-    defs_dir       = Chef::Config[:nodefu_definitions] || config[:definitionss] 
+    defs_dir       = Chef::Config[:nodefu_definitions] || config[:definitions] 
     yml_config     = definitions_from_directory defs_dir
     merged_config  = Chef::Mixin::DeepMerge.merge(yml_config['default'],yml_config['env'][env])
     node_spec_name = config[:node_spec] || base_name 
@@ -101,6 +101,7 @@ class NodefuCreate < Chef::Knife
     abort("See ya!") unless (['yes','y',].include?(user_response))
 
     threads = []   
+    sema = Mutex.new
     for i in (start_range..end_range)
       ec2_server_request = Ec2ServerCreate.new
       node_name = "#{base_name}#{i}"
@@ -120,12 +121,14 @@ class NodefuCreate < Chef::Knife
       threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
         begin 
-          request.run
+            request.run
         rescue => e 
           config[:exit_on_fail] ? raise(e) : puts("#{full_node_name}: #{e.message}")
         end 
-        [full_node_name, { 'server' => request.server, 'failure' => e, 'chef_node' => nil} ]
-      end        
+        sema.synchronize {
+          [full_node_name, { 'server' => request.server, 'failure' => e, 'chef_node' => nil} ]
+        }
+        end        
     end
     threads.each(&:join)
 
