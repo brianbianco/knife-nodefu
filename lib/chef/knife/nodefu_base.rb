@@ -9,7 +9,7 @@ module NodefuBase
   end
 
   def generate_security_groups(name,env)
-    "node_#{env}_#{name},default_#{env},default"  
+    ["node_#{env}_#{name}","default_#{env}","default"]
   end
 
   def check_args(size)
