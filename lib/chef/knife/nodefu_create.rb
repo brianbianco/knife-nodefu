@@ -93,7 +93,11 @@ class NodefuCreate < Chef::Knife
     domain           = merged_config['domain'] 
     vm_spec_name     = node_spec['vm_spec']
     vm_spec          = merged_config['vm_spec'][vm_spec_name]
-    aux_groups       = node_spec['aux_groups']
+    aux_groups       = if node_spec['aux_groups'].nil?
+                         []
+                       else
+                         node_spec['aux_groups']
+                       end
 
     # Present the user with some totally rad visuals!!!
     ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
@@ -121,13 +125,11 @@ class NodefuCreate < Chef::Knife
                           aux_groups
                         end
 
-      puts security_groups.inspect
-
       # A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
       # populate those by hand instead of simply passing a value to its config entry 
-      Chef::Config[:knife][:aws_ssh_key_id] = vm_spec['ssh_key']
-      Chef::Config[:knife][:image]          = vm_spec['ami']
-      Chef::Config[:knife][:region]         = vm_spec['region']
+      Chef::Config[:knife][:aws_ssh_key_id]         = vm_spec['ssh_key']
+      Chef::Config[:knife][:image]                  = vm_spec['ami']
+      Chef::Config[:knife][:region]                 = vm_spec['region']
       ec2_server_request.config[:image]             = vm_spec['ami']
       ec2_server_request.config[:region]            = vm_spec['region']
       ec2_server_request.config[:chef_node_name]    = full_node_name
@@ -137,7 +139,6 @@ class NodefuCreate < Chef::Knife
       ec2_server_request.config[:ssh_user]          = vm_spec['user']
       ec2_server_request.config[:availability_zone] = vm_spec['az']
       ec2_server_request.config[:distro]            = vm_spec['bootstrap'] 
-      puts ec2_server_request.config.inspect
       threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
         begin 
