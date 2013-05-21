@@ -8,9 +8,13 @@ module NodefuBase
     end
   end
 
-  def generate_security_groups(name,env)
-    ["node_#{env}_#{name}","default_#{env}","default"]
-  end
+  def generate_security_groups(name,env,domain)
+    if config[:hostname_style_groups]
+      ["#{name}.#{env}.#{domain}","default_#{env}","default"]
+    else
+      ["node_#{env}_#{name}","default_#{env}","default"]
+    end
+end
 
   def check_args(size)
     if name_args.size < 1

@@ -26,45 +26,28 @@ class NodefuCreate < Chef::Knife
   option :yes,
          :short => "-y",
          :long => "--yes",
+         :boolean => true,
          :description => "ignores prompts, just say YES!",
-         :default => nil
+         :default => false
 
-  option :no_default_groups,
+  option :disable_default_groups,
          :short => "-g",
-         :long => "--no-groups",
-         :description => "Do not automatically generate security groups",
-         :default => nil
+         :long => "--disable_default-groups",
+         :boolean => true,
+         :default => false
+
+  option :hostname_style_groups,
+         :short => "-h",
+         :long => "--hostname-style-groups",
+         :boolean => true,
+         :description => "Use hostname style names for auto generated node security groups",
+         :default => false
 
   option :definitions_file,
          :short => "-d <definitions_directory>",
          :long => "--definitions_dir <definitions_directory>",
          :description => "yml definitions directory",
          :default => nil 
-
-  option :exit_on_fail,
-         :short => "-e",
-         :long => "--exit-on-fail",
-         :description => "Exit if one of the servers fails to come up",
-         :default => nil
-
-  option :destroy_on_fail,
-         :short => "-f",
-         :long => "--destroy-on-fail",
-         :description => "Terminate the ec2 instance on error",
-         :default => nil
-
-  def destroy_instances(servers)
-    ec2_delete = Ec2ServerDelete.new 
-    servers.each_pair.with_index do |(k,v),i| 
-      if v['server'].nil?
-        ui.msg("No server to delete for #{k}")
-      else
-        ec2_delete.name_args[i] = v['server'].id
-      end
-    end
-    ec2_delete.config[:yes] = true
-    ec2_delete.run 
-  end
 
   def definitions_from_directory(dir)
     definitions = Hash.new
@@ -106,9 +89,11 @@ class NodefuCreate < Chef::Knife
     pretty_print_hash(node_spec)
     pretty_print_hash(vm_spec)
  
-    if config[:no_default_groups].nil?
-      ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env)}")
+    unless config[:disable_default_groups]
+      ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env,domain)}")
     end
+
+    puts config.inspect
 
     config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n]").downcase
     abort("See ya!") unless (['yes','y',].include?(user_response))
@@ -119,10 +104,10 @@ class NodefuCreate < Chef::Knife
       ec2_server_request = Ec2ServerCreate.new
       node_name = "#{base_name}#{i}"
       full_node_name  = "#{node_name}.#{env}.#{domain}"  
-      security_groups = if config[:no_default_groups].nil?
-                          generate_security_groups(node_name,env) + aux_groups 
-                        else
+      security_groups = if config[:disable_default_groups]
                           aux_groups
+                        else
+                          generate_security_groups(node_name,env,domain) + aux_groups 
                         end
 
       # A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
@@ -176,11 +161,6 @@ class NodefuCreate < Chef::Knife
     unless successful.nil?
       ui.msg(ui.color('Successful Nodes:',:green))
       successful.each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
-    end
-
-    if config[:destroy_on_fail]
-      ui.msg(ui.color("Destroying failed nodes:",:red))
-      destroy_instances(failed)       
     end
   end 
 end
