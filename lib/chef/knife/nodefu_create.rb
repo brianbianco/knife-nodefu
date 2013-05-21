@@ -93,8 +93,6 @@ class NodefuCreate < Chef::Knife
       ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env,domain)}")
     end
 
-    puts config.inspect
-
     config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n]").downcase
     abort("See ya!") unless (['yes','y',].include?(user_response))
 
