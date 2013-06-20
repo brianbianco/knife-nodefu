@@ -14,7 +14,7 @@ module NodefuBase
     else
       ["node_#{env}_#{name}","default_#{env}","default"]
     end
-end
+  end
 
   def check_args(size)
     if name_args.size < 1
@@ -40,5 +40,9 @@ end
 
   def successful_nodes(servers)
     servers.select {|k,v| !v['chef_node'].nil? && v['failure'].nil? }
+  end
+
+  def is_vpc?(node_spec)
+    node_spec['subnet_id'] || node_spec['private_ip_address'] ? true : false
   end
 end

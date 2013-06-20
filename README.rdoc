@@ -13,7 +13,14 @@ gem install knife-nodefu
 = Definitions File Directory
 
 This file provides all the proper definitions for nodefu to be able to easily build out servers.  You can either pass in the definitions file directory with the -d option, or set the following option in your knife.rb file.
- 
+
+NOTE: VPC Mode is enabled when setting a Private IP
+
+LIMITATIONS:
+- Range is not supported when an Elastic IP or Private IP is set
+- VPC instances require an elastic_ip_address and server_connect_attribute to be set to: public_ip_address
+- VPC instances require group_ids, they don't support generated groups or aux_groups
+
 nodefu_definitions "Path to directory"
 
 Example definitions yml file:
@@ -35,6 +42,17 @@ default:
       vm_spec: 'm1.large'
       run_list:
         - 'role[noodle]'
+    vpc_noodle:
+      vm_spec: 'm1.large'
+      run_list:
+        - 'role[noodle]'
+      subnet_id: 'subnet-00000000'
+      private_ip_address: ###.###.###.###
+      elastic_ip_address: ###.###.###.###
+      group_ids:
+        - 'sg-00000000'
+        - 'sg-00000000' 
+      server_connect_attribute: public_ip_address
 env:
   production:
   staging: 
