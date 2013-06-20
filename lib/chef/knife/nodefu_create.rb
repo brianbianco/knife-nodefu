@@ -132,6 +132,7 @@ class NodefuCreate < Chef::Knife
       ec2_server_request.config[:availability_zone]         = vm_spec['az']
       ec2_server_request.config[:distro]                    = vm_spec['bootstrap']
       ec2_server_request.config[:server_connect_attribute]  = node_spec['server_connect_attribute'] if node_spec['server_connect_attribute']
+      ec2_server_request.config[:environment]               = Chef::Config[:environment]
       threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
         begin 
