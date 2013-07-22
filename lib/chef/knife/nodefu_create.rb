@@ -82,7 +82,10 @@ class NodefuCreate < Chef::Knife
 
     elastic_ip_address = node_spec['elastic_ip_address']
     private_ip_address = node_spec['private_ip_address']
-    abort("Range isn't supported when a private_ip_address or an elastic_ip_address is set, please only create one instance") unless start_range == end_range
+
+    unless elastic_ip_address.nil? && private_ip_address.nil?
+      abort("Range isn't supported when a private_ip_address or an elastic_ip_address is set, please only create one instance") unless start_range == end_range
+    end
     abort('private_ip_address option uses VPC mode, which requires a subnet_id in the definitions file for the node_spec]') if private_ip_address && node_spec['subnet_id'].nil?
 
     # Present the user with some totally rad visuals!!!
