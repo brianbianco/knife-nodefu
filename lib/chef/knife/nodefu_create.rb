@@ -64,21 +64,21 @@ class NodefuCreate < Chef::Knife
 
   def run
     check_args(1)
-    
-    base_name, start_range, end_range = parse_servers(name_args[0])  
 
-    env                = Chef::Config[:environment]  
-    defs_dir           = Chef::Config[:nodefu_definitions] || config[:definitions] 
+    base_name, start_range, end_range = parse_servers(name_args[0])
+
+    env                = Chef::Config[:environment]
+    defs_dir           = Chef::Config[:nodefu_definitions] || config[:definitions]
     yml_config         = definitions_from_directory defs_dir
     merged_config      = Chef::Mixin::DeepMerge.merge(yml_config['default'], yml_config['env'][env])
-    node_spec_name     = config[:node_spec] || base_name 
+    node_spec_name     = config[:node_spec] || base_name
     abort("I'm sorry I couldn't find any node_spec matches :(") unless (node_spec = merged_config['node_spec'][node_spec_name])
 
-    domain             = merged_config['domain'] 
+    domain             = merged_config['domain']
     vm_spec_name       = node_spec['vm_spec']
     vm_spec            = merged_config['vm_spec'][vm_spec_name]
     group_ids          = node_spec['group_ids'] ||= []
-    aux_groups         = node_spec['aux_groups'] ||= []    
+    aux_groups         = node_spec['aux_groups'] ||= []
 
     elastic_ip_address = node_spec['elastic_ip_address']
     private_ip_address = node_spec['private_ip_address']
@@ -95,7 +95,7 @@ class NodefuCreate < Chef::Knife
     ui.msg("#{ui.color('VPC Mode',:cyan)}: #{is_vpc?(node_spec)}")
     pretty_print_hash(node_spec)
     pretty_print_hash(vm_spec)
- 
+
     unless config[:disable_default_groups] || is_vpc?(node_spec)
       ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env,domain)}")
     end
@@ -103,28 +103,28 @@ class NodefuCreate < Chef::Knife
     config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n]").downcase
     abort("See ya!") unless (['yes','y',].include?(user_response))
 
-    threads = []   
+    threads = []
     sema = Mutex.new
     for i in (start_range..end_range)
       ec2_server_request = Ec2ServerCreate.new
       node_name = "#{base_name}#{i}"
-      full_node_name  = "#{node_name}.#{env}.#{domain}"  
+      full_node_name  = "#{node_name}.#{env}.#{domain}"
       security_groups = if config[:disable_default_groups]
                           aux_groups
                         else
-                          generate_security_groups(node_name,env,domain) + aux_groups 
+                          generate_security_groups(node_name,env,domain) + aux_groups
                         end unless is_vpc?(node_spec)
       security_group_ids = group_ids
 
       # A handfull of the Ec2ServerCreate command line options use a :proc field so I have to
-      # populate those by hand instead of simply passing a value to its config entry 
+      # populate those by hand instead of simply passing a value to its config entry
       Chef::Config[:knife][:aws_ssh_key_id]                 = vm_spec['ssh_key']
       Chef::Config[:knife][:image]                          = vm_spec['ami']
       Chef::Config[:knife][:region]                         = vm_spec['region']
       ec2_server_request.config[:image]                     = vm_spec['ami']
       ec2_server_request.config[:region]                    = vm_spec['region']
       ec2_server_request.config[:chef_node_name]            = full_node_name
-      ec2_server_request.config[:run_list]                  = node_spec['run_list']      
+      ec2_server_request.config[:run_list]                  = node_spec['run_list']
       ec2_server_request.config[:flavor]                    = vm_spec['type']
       ec2_server_request.config[:security_groups]           = security_groups if security_groups
       ec2_server_request.config[:security_group_ids]        = security_group_ids if security_group_ids
@@ -136,17 +136,18 @@ class NodefuCreate < Chef::Knife
       ec2_server_request.config[:distro]                    = vm_spec['bootstrap']
       ec2_server_request.config[:server_connect_attribute]  = node_spec['server_connect_attribute'] if node_spec['server_connect_attribute']
       ec2_server_request.config[:environment]               = Chef::Config[:environment]
+      ec2_server_request.config[:ssh_port]                  = "22"
       threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
-        begin 
+        begin
             request.run
-        rescue => e 
+        rescue => e
           config[:exit_on_fail] ? raise(e) : puts("#{full_node_name}: #{e.message}")
-        end 
+        end
         sema.synchronize {
           [full_node_name, { 'server' => request.server, 'failure' => e, 'chef_node' => nil} ]
         }
-        end        
+        end
     end
     threads.each(&:join)
 
@@ -154,17 +155,17 @@ class NodefuCreate < Chef::Knife
     @servers = threads.inject({}) {|hash,t| hash[t.value[0]] = t.value[1]; hash}
 
     query = Chef::Search::Query.new
-    query.search('node',"name:#{base_name}*#{env}*") { |n| @servers[n.name]['chef_node'] = n unless @servers[n.name].nil? } 
+    query.search('node',"name:#{base_name}*#{env}*") { |n| @servers[n.name]['chef_node'] = n unless @servers[n.name].nil? }
 
-    ui.msg('') 
+    ui.msg('')
 
     failed = failed_nodes(@servers)
     unless failed.nil?
-      failed.each_pair do |k,v| 
+      failed.each_pair do |k,v|
         if v['server'].nil?
           ui.msg("#{k}: #{v['failure']}")
         else
-          ui.msg("#{k}: #{v['failure']}, #{v['server'].dns_name}, #{v['server'].id}") 
+          ui.msg("#{k}: #{v['failure']}, #{v['server'].dns_name}, #{v['server'].id}")
         end
       end
     end
