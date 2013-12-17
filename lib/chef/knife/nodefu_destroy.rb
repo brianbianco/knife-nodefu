@@ -45,25 +45,25 @@ class NodefuDestroy < Chef::Knife
     ui.msg("#{ui.color('Nodes to be deleted:',:red)}")
     pretty_print_hash nodes_to_delete
 
-    ui.msg("#{ui.color('EC2 instances to be terminated:',:red)}") 
+    ui.msg("#{ui.color('EC2 instances to be terminated:',:red)}")
     nodes_to_delete.each_pair do |name,node|
       instance_id = node['ec2']['instance_id']
       ui.msg("#{ui.color(name,:magenta)}: #{instance_id}")
     end
-    
-    config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n]").downcase
+
+    config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n] ").downcase
     abort("See ya!") unless (['yes','y',].include?(user_response))
 
     threads = []
     #Delete the ec2 server
     nodes_to_delete.each_pair do |name,node|
-       ec2_delete = Ec2ServerDelete.new 
+       ec2_delete = Ec2ServerDelete.new
        ec2_delete.name_args[0] = node['ec2']['instance_id']
        ec2_delete.config[:chef_node_name] = name
        ec2_delete.config[:purge] = true
        ec2_delete.config[:yes] = true
        threads << Thread.new(node) { |node| ec2_delete.run }
-    end 
+    end
     threads.each(&:join)
   end
 end
