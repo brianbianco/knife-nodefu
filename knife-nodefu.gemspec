@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
   s.summary     = 'A knife plugin for simple node creation automation'
   s.description = s.summary
   s.extra_rdoc_files = ['README.rdoc', 'LICENSE' ]
- 
+
   s.add_dependency 'knife-ec2'
   s.add_dependency 'chef', '>= 0.10'
 

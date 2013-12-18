@@ -50,12 +50,6 @@ class NodefuCreate < Chef::Knife
          :description => "yml definitions directory",
          :default => nil
 
-  option :iam_instance_profile,
-         :short => "-i <iam_role>",
-         :long => "--iam-profile <iam_role>",
-         :description => "The IAM instance profile to apply to this instance.",
-         :default => nil
-
   def definitions_from_directory(dir)
     definitions = Hash.new
     Dir.entries(dir).each do |f|
@@ -101,7 +95,6 @@ class NodefuCreate < Chef::Knife
     ui.msg("#{ui.color('VPC Mode',:cyan)}: #{is_vpc?(node_spec)}")
     pretty_print_hash(node_spec)
     pretty_print_hash(vm_spec)
-    pretty_print_hash('iam_role' => config[:iam_instance_profile])
 
     unless config[:disable_default_groups] || is_vpc?(node_spec)
       ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env,domain)}")
@@ -144,7 +137,7 @@ class NodefuCreate < Chef::Knife
       ec2_server_request.config[:server_connect_attribute]  = node_spec['server_connect_attribute'] if node_spec['server_connect_attribute']
       ec2_server_request.config[:environment]               = Chef::Config[:environment]
       ec2_server_request.config[:ssh_port]                  = "22"
-      ec2_server_request.config[:iam_instance_profile]      = config[:iam_instance_profile]
+      ec2_server_request.config[:iam_instance_profile]      = node_spec['iam_instance_profile']
       threads << Thread.new(full_node_name,ec2_server_request) do |full_node_name,request|
         e = nil
         begin

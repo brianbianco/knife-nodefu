@@ -1,6 +1,6 @@
 module Knife
   module Nodefu
-    VERSION = "0.4.3"
+    VERSION = "0.5.0"
     MAJOR, MINOR, TINY = VERSION.split(',')
   end
 end
