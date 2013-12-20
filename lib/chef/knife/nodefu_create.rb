@@ -88,6 +88,8 @@ class NodefuCreate < Chef::Knife
     end
     abort('private_ip_address option uses VPC mode, which requires a subnet_id in the definitions file for the node_spec]') if private_ip_address && node_spec['subnet_id'].nil?
 
+    abort("It looks like you haven't added the #{vm_spec['ssh_key']} key to your ssh keychain.\n\nRun ssh-add /path/to/#{vm_spec['ssh_key']}.pem\n\n") if `ssh-add -L | grep #{vm_spec['ssh_key']}`.empty?
+
     # Present the user with some totally rad visuals!!!
     ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
     ui.msg("#{ui.color('Base Name',:cyan)}: #{base_name}")
