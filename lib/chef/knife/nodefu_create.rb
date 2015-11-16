@@ -91,7 +91,15 @@ class NodefuCreate < Chef::Knife
     abort("It looks like you haven't added the #{vm_spec['ssh_key']} key to your ssh keychain.\n\nRun ssh-add /path/to/#{vm_spec['ssh_key']}.pem\n\n") if `ssh-add -L | grep #{vm_spec['ssh_key']}`.empty?
 
     # Present the user with some totally rad visuals!!!
-    ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
+    number_of_instances =
+      case start_range
+      when end_range
+        1
+      else
+        end_range - start_range + 1
+      end
+
+    ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((number_of_instances).to_s,:yellow)} of these:")
     ui.msg("#{ui.color('Base Name',:cyan)}: #{base_name}")
     ui.msg("#{ui.color('Node Spec',:cyan)}: #{node_spec_name}")
     ui.msg("#{ui.color('VPC Mode',:cyan)}: #{is_vpc?(node_spec)}")
@@ -99,7 +107,16 @@ class NodefuCreate < Chef::Knife
     pretty_print_hash(vm_spec)
 
     unless config[:disable_default_groups] || is_vpc?(node_spec)
-      ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{start_range}-#{end_range}",env,domain)}")
+      range_formatted =
+        case start_range
+        when nil
+          ''
+        when end_range
+          "#{start_range}"
+        else
+          "#{start_range}-#{end_range}"
+        end
+      ui.msg("#{ui.color('Auto generated security groups',:cyan)}: #{generate_security_groups("#{base_name}#{range_formatted}",env,domain)}")
     end
 
     config[:yes] ? user_response = 'yes' : user_response = ui.ask_question("Does this seem right to you? [y/n] ").downcase
@@ -107,9 +124,10 @@ class NodefuCreate < Chef::Knife
 
     threads = []
     sema = Mutex.new
-    for i in (start_range..end_range)
+    for i in (start_range.to_i..end_range.to_i)
       ec2_server_request = Ec2ServerCreate.new
-      node_name = "#{base_name}#{i}"
+      node_name = start_range.nil? ? "#{base_name}" : "#{base_name}#{i}"
+
       full_node_name  = "#{node_name}.#{env}.#{domain}"
       security_groups = if config[:disable_default_groups]
                           aux_groups
