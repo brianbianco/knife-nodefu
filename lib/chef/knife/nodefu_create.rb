@@ -13,7 +13,7 @@ class NodefuCreate < Chef::Knife
 
   include NodefuBase
 
-  banner "knife nodefu create <server><range> (OPTIONS)"
+  banner "knife nodefu create <server>[<range>] (OPTIONS)"
 
   attr_reader :servers
 
