@@ -50,6 +50,13 @@ class NodefuCreate < Chef::Knife
          :description => "yml definitions directory",
          :default => nil
 
+  option :bypass_key_check,
+         :short => "-b",
+         :long => "--bypass-key-check",
+         :boolean => true,
+         :description => "Bypass checking to see if ssh key is in the keychain",
+         :default => false
+
   def definitions_from_directory(dir)
     definitions = Hash.new
     Dir.entries(dir).each do |f|
@@ -88,7 +95,10 @@ class NodefuCreate < Chef::Knife
     end
     abort('private_ip_address option uses VPC mode, which requires a subnet_id in the definitions file for the node_spec]') if private_ip_address && node_spec['subnet_id'].nil?
 
-    abort("It looks like you haven't added the #{vm_spec['ssh_key']} key to your ssh keychain.\n\nRun ssh-add /path/to/#{vm_spec['ssh_key']}.pem\n\n") if `ssh-add -L | grep #{vm_spec['ssh_key']}`.empty?
+
+    unless config[:bypass_key_check]
+      abort("It looks like you haven't added the #{vm_spec['ssh_key']} key to your ssh keychain.\n\nRun ssh-add /path/to/#{vm_spec['ssh_key']}.pem\n\n") if `ssh-add -L | grep #{vm_spec['ssh_key']}`.empty?
+    end
 
     # Present the user with some totally rad visuals!!!
     ui.msg("#{ui.color('SHAZAM!',:red)} It looks like you want to launch #{ui.color((end_range - start_range + 1).to_s,:yellow)} of these:")
