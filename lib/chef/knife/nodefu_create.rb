@@ -86,7 +86,8 @@ class NodefuCreate < Chef::Knife
     vm_spec            = merged_config['vm_spec'][vm_spec_name]
     group_ids          = node_spec['group_ids'] ||= []
     aux_groups         = node_spec['aux_groups'] ||= []
-
+    post_success       = node_spec['post_success'] ||= nil
+    post_failure       = node_spec['post_fail'] ||= nil
     elastic_ip_address = node_spec['elastic_ip_address']
     private_ip_address = node_spec['private_ip_address']
 
@@ -186,7 +187,14 @@ class NodefuCreate < Chef::Knife
     successful = successful_nodes(@servers)
     unless successful.nil?
       ui.msg(ui.color('Successful Nodes:',:green))
-      successful.each_pair { |k,v| ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}") }
+      successful.each_pair do |k,v|
+        ui.msg("#{k}: #{v['id']}, #{v['server'].dns_name}, #{v['server'].id}")
+        unless post_success.nil?
+          print "running #{post_success} for #{v['server'].dns_name}"
+          ENV['DNS_NAME']=v['server'].dns_name
+          print %x(#{post_success})
+        end
+      end
     end
   end
 end
